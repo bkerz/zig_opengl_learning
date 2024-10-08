@@ -42,8 +42,12 @@ pub fn build(b: *std.Build) void {
     exe.linkLibrary(zglfw.artifact("glfw"));
 
     // OpenGL
-    const zopengl = b.dependency("zopengl", .{});
-    exe.root_module.addImport("zopengl", zopengl.module("root"));
+    const gl = b.createModule(.{
+        .root_source_file = b.path("libs/gl.zig"),
+    });
+    exe.root_module.addImport("gl", gl);
+    // const zopengl = b.dependency("zopengl", .{});
+    // exe.root_module.addImport("zopengl", zopengl.module("root"));
 
     @import("system_sdk").addLibraryPathsTo(exe);
 

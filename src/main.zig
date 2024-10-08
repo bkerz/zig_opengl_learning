@@ -1,7 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
 const glfw = @import("zglfw");
-const zopengl = @import("zopengl");
+const gl = @import("gl");
 
 pub const Error = error{
     FailedToInitializeSDL2Window,
@@ -33,25 +33,31 @@ pub fn main() !void {
 
     glfw.makeContextCurrent(window);
 
-    try zopengl.loadCoreProfile(glfw.getProcAddress, gl_major, gl_minor);
-
-    const gl = zopengl.bindings;
+    try gl.load({}, getProcAddress);
 
     // const vertices = [_]gl.Float{
     //     -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
     //     0.5,  -0.5, 0.0, 0.0, 1.0, 0.0,
     //     0.0,  0.5,  0.0, 0.0, 0.0, 1.0,
     // };
-    // const vertices = [_]gl.Float{
+    // const vertices = [_]f32{
     //     -1.0, 1.0, -0.0, // topleft vert
     //     1.0, 1.0, -0.0, // topright vert
     //     1.0, -1.0, -0.0, // bottomright vert
     //     -1.0, -1.0, -0.0, // bottomleft vert
     // };
     const vertices = [_]f32{
-        -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
-        0.5,  -0.5, 0.0, 0.0, 1.0, 0.0,
-        0.0,  0.5,  0.0, 0.0, 0.0, 1.0,
+        -0.5, -0.5 * @sqrt(3.0) / 3.0, 0.0, //lower left corner
+        0.5, -0.5 * @sqrt(3.0) / 3.0, 0.0, //lower right corner
+        0.0, 0.5 * @sqrt(3.0) * 2.0 / 3.0, 0.0, //upper corner
+        -0.5 / 2.0, 0.5 * @sqrt(3.0) / 6.0, 0.0, //inner left corner
+        0.5 / 2.0, 0.5 * @sqrt(3.0) / 6.0, 0.0, //inner right corner
+        0.0, -0.5 * @sqrt(3.0) / 3.0, 0.0, //inner down corner
+    };
+    const indices = [_]i32{
+        0, 3, 5, //lower left triangle
+        3, 2, 4, //lower right triangle
+        5, 4, 1, //upper triangle
     };
 
     const vertexShader: [*:0]const u8 = @embedFile("./vertex_shader_source.vert");
@@ -61,7 +67,7 @@ pub fn main() !void {
         return;
     }
 
-    const shaderProgram: gl.Uint = gl.createProgram();
+    const shaderProgram: c_uint = gl.createProgram();
     defer gl.deleteProgram(shaderProgram);
 
     const segundo = gl.getError();
@@ -86,6 +92,7 @@ pub fn main() !void {
 
     var VAO: c_uint = undefined;
     var VBO: c_uint = undefined;
+    var EBO: c_uint = undefined;
 
     gl.genVertexArrays(1, &VAO);
     defer gl.deleteVertexArrays(1, &VAO);
@@ -93,40 +100,47 @@ pub fn main() !void {
     gl.genBuffers(1, &VBO);
     defer gl.deleteBuffers(1, &VBO);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
+    gl.genBuffers(1, &EBO);
+    defer gl.deleteBuffers(1, &EBO);
 
-    // gl.bufferData(gl.ARRAY_BUFFER, vertices.len, &vertices, gl.STATIC_DRAW);
-    // gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, gl.STATIC_DRAW);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices.len * @sizeOf(f32), &vertices, gl.STATIC_DRAW);
-    // const stride: c_int = @intCast(@sizeOf(f64));
-    // const currentOffset = @sizeOf(bool);
+    gl.bindVertexArray(VAO);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
+    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, gl.STATIC_DRAW);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, @sizeOf(f32) * indices.len, &indices, gl.STATIC_DRAW);
+
     const beforeVertex = gl.getError();
     if (beforeVertex != gl.NO_ERROR) {
         std.debug.print("error justo antes del vertexAttribPointer {}\n ", .{beforeVertex});
         return;
     }
 
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * @sizeOf(f32), null);
-    gl.enableVertexAttribArray(0);
+    // gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(0 * @sizeOf(f32)))); // position
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), null); // position
 
-    const offset: [*c]c_uint = (3 * @sizeOf(f32));
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * @sizeOf(f32), offset);
-    gl.enableVertexAttribArray(0);
+    // const offset: [*c]c_uint = (3 * @sizeOf(f32));
+    // gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), offset);
+    // gl.enableVertexAttribArray(0);
 
     const beforeAttach = gl.getError();
     if (beforeAttach != gl.NO_ERROR) {
         std.debug.print("error justo luego del vertexAttribPointer {}\n ", .{beforeAttach});
         return;
     }
+    gl.enableVertexAttribArray(0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
+    gl.bindVertexArray(0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0);
 
     // const offset: [*c]c_uint = (3 * @sizeOf(f32));
     // gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 6 * @sizeOf(f32), offset);
     // gl.enableVertexAttribArray(1);
 
-    gl.bindVertexArray(VAO);
-
-    gl.clearColor(1.0, 0.0, 0.0, 1.0);
-    gl.viewport(0, 0, 1600, 900); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    // gl.viewport(0, 0, 1600, 900); // Render on the whole framebuffer, complete from the lower left corner to the upper right
     const beforeWhileError = gl.getError();
     if (beforeWhileError != gl.NO_ERROR) {
         std.debug.print("error antes del while {}\n", .{beforeWhileError});
@@ -138,7 +152,7 @@ pub fn main() !void {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.useProgram(shaderProgram);
         gl.bindVertexArray(VAO);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.drawElements(gl.TRIANGLES, @intCast(indices.len), gl.UNSIGNED_INT, null);
         glfw.pollEvents();
         window.swapBuffers();
         const erro2r_ = gl.getError();
@@ -150,7 +164,6 @@ pub fn main() !void {
 }
 
 fn compileShader(allocator: std.mem.Allocator, shader_type: c_uint, source: [*:0]const u8) !c_uint {
-    const gl = zopengl.bindings;
     const shader = gl.createShader(shader_type);
     if (shader == 0) {
         return Error.FailedToCompileAndLinkShader;
@@ -180,145 +193,12 @@ fn compileShader(allocator: std.mem.Allocator, shader_type: c_uint, source: [*:0
     return Error.FailedToCompileAndLinkShader;
 }
 
-fn triangle(window: glfw.Window, gl: zopengl.bindings, shaderProgram: c_int) !void {
-    // defer glfw.terminate();
-    // defer window.destroy();
-    // window.setUserPointer(&input_manager);
-    // window.setKeyCallback(Input.InputManager.keyPressCallback);
-    // window.setScrollCallback(Input.InputManager.scrollBackCallback);
-
-    // const proc: glfw.GLProc = undefined;
-    // try gl.load(proc, getProcAddress);
-    //
-    // camera = Camera{
-    //     .aspect_ratio = 16.0 / 9.0,
-    //     .screen_width = 1920,
-    //     .samples_per_pixel = 1,
-    //     .max_bounces = 50,
-    //     .position = Vec3f.new(0, 0, -5),
-    // };
-    // input_manager = Input.InputManager{};
-    // shader = ShaderProgram{};
-    // try shader.compile(alloc);
-    const vertices = [12]f32{
-        -1.0, 1.0, -0.0, // topleft vert
-        1.0, 1.0, -0.0, // topright vert
-        1.0, -1.0, -0.0, // bottomright vert
-        -1.0, -1.0, -0.0, // bottomleft vert
-    };
-    const indices = [6]u32{
-        0, 1, 2, 2, 3, 0,
-    };
-    var vao: u32 = undefined;
-    gl.genVertexArrays(1, &vao);
-    defer gl.deleteVertexArrays(1, &vao);
-
-    var vbo: u32 = undefined;
-    gl.genBuffers(1, &vbo);
-    defer gl.deleteBuffers(1, &vbo);
-
-    var ebo: u32 = undefined;
-    gl.genBuffers(1, &ebo);
-    defer gl.deleteBuffers(1, &ebo);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices.len * @sizeOf(u32), indices[0..].ptr, gl.STATIC_DRAW);
-
-    gl.bindVertexArray(vao);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices.len * @sizeOf(f32), vertices[0..].ptr, gl.STATIC_DRAW);
-
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), null);
-    gl.enableVertexAttribArray(0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
-    gl.bindVertexArray(0);
-
-    var frame_buffer_name: u32 = 0;
-    gl.genFramebuffers(1, &frame_buffer_name);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, frame_buffer_name);
-
-    // The texture we're going to render to
-    // var rendered_texture: u32 = 0;
-    // gl.genTextures(1, &rendered_texture);
-
-    // "Bind" the newly created texture : all future texture functions will modify this texture
-    // gl.bindTexture(gl.TEXTURE_2D, rendered_texture);
-
-    // Give an empty image to OpenGL ( the last "0" )
-    // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1024, 768, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
-    //
-    // // Poor filtering. Needed !
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-
-    // Set "renderedTexture" as our colour attachement #0
-    // gl.framebufferTexture(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, rendered_texture, 0);
-
-    // Set the list of draw buffers.
-    const DrawBuffers: [1]gl = [1]gl.GLenum{gl.COLOR_ATTACHMENT0};
-    gl.drawBuffers(1, &DrawBuffers); // "1" is the size of DrawBuffers
-
-    // var last_update = glfw.getTime();
-    // window.setInputModeCursor(.disabled);
-
-    while (!window.shouldClose()) {
-        glfw.pollEvents();
-        // const size = window.getSize();
-        // camera.screen_width = size.width;
-        // camera.screen_height = size.height;
-
-        // get frametime
-        // const current = glfw.getTime();
-        // const elapsed = current - last_update;
-        // last_update = current;
-
-        gl.clearColor(1.0, 0.0, 0.0, 1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        gl.useProgram(shaderProgram);
-        gl.activeTexture(gl.TEXTURE0);
-
-        // try setUniform(gl.getUniformLocation(shader.program, "view_matrix"), camera.getViewMatrix());
-        // try setUniform(gl.getUniformLocation(shader.program, "model_matrix"), camera.getModelMatrix());
-        // try setUniform(gl.getUniformLocation(shader.program, "projection_matrix"), camera.getProjectionMatrix());
-        // try setUniform(gl.getUniformLocation(shader.program, "camera_position"), camera.position);
-
-        // const w: f32 = @floatFromInt(camera.screen_width);
-        // const y: f32 = @floatFromInt(camera.screen_height);
-        // try setUniform(gl.getUniformLocation(shader.program, "resolution"), Vec2f.new(w, y));
-        gl.bindVertexArray(vao);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
-
-        // Render to our framebuffer
-        gl.viewport(0, 0, 1920, 1080); // Render on the whole framebuffer, complete from the lower left corner to the upper right
-        gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
-        const erro2r_ = gl.getError();
-        if (erro2r_ != gl.NO_ERROR) {
-            std.debug.print("\nwtf {} \n", .{erro2r_});
-            return;
-        }
-
-        // Always check that our framebuffer is ok
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-            std.debug.print("!!!\nERROR framebuffer\n!!!", .{});
-            return;
-        }
-
-        gl.drawElements(gl.TRIANGLES, @intCast(indices.len), gl.UNSIGNED_INT, null);
-        window.swapBuffers();
-        // input_manager.newFrame();
-        // camera.input(&window, elapsed);
-    }
-}
-
-fn glGetProcAddress(p: glfw.GlProc, proc: [:0]const u8) ?glfw.GlProc {
-    _ = p;
-    return glfw.getProcAddress(proc);
+fn getProcAddress(_: void, name: [:0]const u8) ?*anyopaque {
+    const proc = glfw.getProcAddress(name);
+    return @as(?*anyopaque, @ptrFromInt(@intFromPtr(proc)));
 }
 
 fn framebuffer_size_callback(window: glfw.Window, width: u32, height: u32) void {
     _ = window;
-    zopengl.bindings.viewport(0, 0, @intCast(width), @intCast(height));
+    gl.viewport(0, 0, @intCast(width), @intCast(height));
 }
