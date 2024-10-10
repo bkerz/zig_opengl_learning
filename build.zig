@@ -36,6 +36,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // const dep_stb = b.dependency("stb", .{});
+
     // GLFW (Window library)
     const zglfw = b.dependency("zglfw", .{ .target = target });
     exe.root_module.addImport("zglfw", zglfw.module("root"));
@@ -46,6 +48,15 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("libs/gl.zig"),
     });
     exe.root_module.addImport("gl", gl);
+
+    //STB Image loader
+    exe.addIncludePath(b.path("libs/stb"));
+    exe.addCSourceFile(.{ .file = b.path("libs/stb/main.c"), .flags = &.{"-std=c89"} });
+    exe.linkLibC();
+    // const zstbi = b.dependency("zstbi", .{});
+    // exe.root_module.addImport("zstbi", zstbi.module("root"));
+    // exe.linkLibrary(zstbi.artifact("zstbi"));
+
     // const zopengl = b.dependency("zopengl", .{});
     // exe.root_module.addImport("zopengl", zopengl.module("root"));
 

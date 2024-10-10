@@ -54,6 +54,7 @@
         .zopengl = .{ .path = "libs/zopengl" },
         .zglfw = .{ .path = "libs/zglfw" },
         .system_sdk = .{ .path = "libs/system-sdk" },
+        // .zstbi = .{ .path = "libs/zstb" },
     },
 
     // Specifies the set of files and directories that are included in this package.
