@@ -77,26 +77,20 @@ pub fn main() !void {
 
     gl.linkProgram(shaderProgram);
 
-    var VAO: c_uint = undefined;
-    var VBO: c_uint = undefined;
-    var EBO: c_uint = undefined;
+    var VAO = utils.VAO{};
+    var VBO = utils.VBO{};
+    var EBO = utils.EBO{};
 
-    gl.genVertexArrays(1, &VAO);
-    defer gl.deleteVertexArrays(1, &VAO);
+    var texture = try utils.Texture.new("test.png");
 
-    gl.genBuffers(1, &VBO);
-    defer gl.deleteBuffers(1, &VBO);
+    VAO.initVAO();
+    defer VAO.delete();
 
-    gl.genBuffers(1, &EBO);
-    defer gl.deleteBuffers(1, &EBO);
+    try VBO.initBuffer(f32, &vertices, &VAO);
+    try EBO.initBuffer(i32, &indices, &VAO);
 
-    gl.bindVertexArray(VAO);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
-    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, gl.STATIC_DRAW);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, @sizeOf(f32) * indices.len, &indices, gl.STATIC_DRAW);
+    texture.bind(null);
+    defer texture.unBind();
 
     const beforeVertex = gl.getError();
     if (beforeVertex != gl.NO_ERROR) {
@@ -104,50 +98,34 @@ pub fn main() !void {
         return;
     }
 
-    // gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(0 * @sizeOf(f32)))); // position
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), null); // position
-
-    // const offset: [*c]c_uint = (3 * @sizeOf(f32));
-    // gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), offset);
-    // gl.enableVertexAttribArray(0);
+    VAO.linkVBO(&VBO, 0, 2, gl.FLOAT, 2 * @sizeOf(f32), null);
+    VAO.linkVBO(&VBO, 1, 2, gl.FLOAT, 2 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
 
     const beforeAttach = gl.getError();
     if (beforeAttach != gl.NO_ERROR) {
         std.debug.print("error justo luego del vertexAttribPointer {}\n ", .{beforeAttach});
         return;
     }
-    gl.enableVertexAttribArray(0);
+    gl.useProgram(shaderProgram);
+    const uniformId = gl.getUniformLocation(shaderProgram, "u_Color");
+    gl.uniform4f(uniformId, 0.2, 0.2, 0.2, 1.0);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
-    gl.bindVertexArray(0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0);
+    const textureUniform = gl.getUniformLocation(shaderProgram, "u_Texture");
+    gl.uniform1i(textureUniform, 0);
 
-    // const offset: [*c]c_uint = (3 * @sizeOf(f32));
-    // gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 6 * @sizeOf(f32), offset);
-    // gl.enableVertexAttribArray(1);
+    VAO.unBind();
+    VBO.unBind();
+    EBO.unBind();
 
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    // gl.viewport(0, 0, 1600, 900); // Render on the whole framebuffer, complete from the lower left corner to the upper right
-    const beforeWhileError = gl.getError();
-    if (beforeWhileError != gl.NO_ERROR) {
-        std.debug.print("error antes del while {}\n", .{beforeWhileError});
-        return;
-    }
+    var Renderer = utils.Renderer{
+        .vertices = &vertices,
+        .indices = &indices,
+        .window = window,
+        .shaderProgram = shaderProgram,
+        .vao = &VAO,
+    };
 
-    while (!window.shouldClose()) {
-        // gl.clearBufferfv(gl.COLOR, 0, &[_]f32{ 0.0, 0.0, 0.0, 0.0 });
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.useProgram(shaderProgram);
-        gl.bindVertexArray(VAO);
-        gl.drawElements(gl.TRIANGLES, @intCast(indices.len), gl.UNSIGNED_INT, null);
-        glfw.pollEvents();
-        window.swapBuffers();
-        const erro2r_ = gl.getError();
-        if (erro2r_ != gl.NO_ERROR) {
-            std.debug.print("\nhubo un error {} \n", .{erro2r_});
-            return;
-        }
-    }
+    try Renderer.draw();
 }
 
 fn compileShader(allocator: std.mem.Allocator, shader_type: c_uint, source: [*:0]const u8) !c_uint {
