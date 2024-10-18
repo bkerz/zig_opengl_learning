@@ -2,6 +2,7 @@ const std = @import("std");
 const mem = std.mem;
 const glfw = @import("zglfw");
 const gl = @import("gl");
+const utils = @import("structs.zig");
 
 pub const Error = error{
     FailedToInitializeSDL2Window,
@@ -28,36 +29,22 @@ pub fn main() !void {
     glfw.windowHintTyped(.client_api, .opengl_api);
     glfw.windowHintTyped(.doublebuffer, true);
 
-    const window = try glfw.Window.create(1600, 900, "GLFW & OpenGL Learning", null);
+    var window = try glfw.Window.create(1600, 900, "GLFW & OpenGL Learning", null);
     defer window.destroy();
 
     glfw.makeContextCurrent(window);
 
     try gl.load({}, getProcAddress);
 
-    // const vertices = [_]gl.Float{
-    //     -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
-    //     0.5,  -0.5, 0.0, 0.0, 1.0, 0.0,
-    //     0.0,  0.5,  0.0, 0.0, 0.0, 1.0,
-    // };
-    // const vertices = [_]f32{
-    //     -1.0, 1.0, -0.0, // topleft vert
-    //     1.0, 1.0, -0.0, // topright vert
-    //     1.0, -1.0, -0.0, // bottomright vert
-    //     -1.0, -1.0, -0.0, // bottomleft vert
-    // };
-    const vertices = [_]f32{
-        -0.5, -0.5 * @sqrt(3.0) / 3.0, 0.0, //lower left corner
-        0.5, -0.5 * @sqrt(3.0) / 3.0, 0.0, //lower right corner
-        0.0, 0.5 * @sqrt(3.0) * 2.0 / 3.0, 0.0, //upper corner
-        -0.5 / 2.0, 0.5 * @sqrt(3.0) / 6.0, 0.0, //inner left corner
-        0.5 / 2.0, 0.5 * @sqrt(3.0) / 6.0, 0.0, //inner right corner
-        0.0, -0.5 * @sqrt(3.0) / 3.0, 0.0, //inner down corner
+    var vertices = [_]f32{
+        -0.70, 0.70, 0.0, 0.0, // topleft vert
+        0.70, 0.70, 1.0, 0.0, // topright vert
+        0.70, -0.70, 1.0, 1.0, // bottomright vert
+        -0.70, -0.70, 0.0, 1.0, // bottomright vert
     };
-    const indices = [_]i32{
-        0, 3, 5, //lower left triangle
-        3, 2, 4, //lower right triangle
-        5, 4, 1, //upper triangle
+    var indices = [_]i32{
+        0, 2, 4,
+        0, 6, 4,
     };
 
     const vertexShader: [*:0]const u8 = @embedFile("./vertex_shader_source.vert");
