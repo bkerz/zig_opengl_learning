@@ -51,6 +51,7 @@
 									libxkbcommon
 									pkg-config
 									zig
+									zls
 									glm
 									fontconfig
 									fontconfig.lib
@@ -73,14 +74,17 @@
 									 echo "Inside zsh, launching tmux..."
 
 									 # Start a new tmux session (or attach if already running)
-									 tmux new-session -d -s mysession
+									 tmux new-session -d -s zigsession
 
 									 # Create a new window and run commands inside it
-									 tmux send-keys -t mysession:0 "nvim ." C-m
-									 #tmux send-keys -t mysession:0 "your-command-2" C-m
+									 tmux send-keys -t zigsession:0 "nvim ." C-m
+
+									 tmux new-window -t zigsession:1 -n build
+									 tmux send-keys -t zigsession:1 "zig build run" C-m
 
 									 # Attach to the tmux session
-									 exec tmux attach -t mysession
+									 tmux attach -t zigsession
+
 									 '
 									 '';
 						};
