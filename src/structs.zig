@@ -148,3 +148,28 @@ pub const Texture = struct {
         gl.bindTexture(gl.TEXTURE_2D, 0);
     }
 };
+
+pub const Renderer = struct {
+    const Self = @This();
+    vertices: []f32,
+    indices: []i32,
+    shaderProgram: c_uint,
+    window: *glfw.Window,
+    vao: *VAO,
+
+    pub fn draw(self: *Self) !void {
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        while (!self.window.shouldClose()) {
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            self.vao.bind();
+            gl.drawElements(gl.TRIANGLES, @intCast(self.indices.len), gl.UNSIGNED_INT, null);
+            glfw.pollEvents();
+            self.window.swapBuffers();
+            const erro2r_ = gl.getError();
+            if (erro2r_ != gl.NO_ERROR) {
+                std.debug.print("\nhubo un error {} \n", .{erro2r_});
+                return;
+            }
+        }
+    }
+};
