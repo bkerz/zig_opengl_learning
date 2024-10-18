@@ -1,5 +1,6 @@
 const std = @import("std");
 const gl = @import("gl");
+const glfw = @import("zglfw");
 const stb = @cImport({
     @cInclude("stb_image.h");
 });
@@ -115,6 +116,7 @@ pub const Texture = struct {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
+        gl.bindTexture(gl.TEXTURE_2D, 0);
 
         stb.stbi_image_free(buffer);
 
